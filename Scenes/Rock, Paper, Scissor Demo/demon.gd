@@ -22,8 +22,10 @@ func _process(_delta: float) -> void:
 	if state != _last_state:
 		_last_state = state
 		match state:
-			WebSocketPeer.STATE_OPEN:
+			WebSocketPeer.STATE_CONNECTING:
 				disconnect_btn.disabled = false
+			WebSocketPeer.STATE_OPEN:
+				send_message({"type" : "finding_match"})
 			WebSocketPeer.STATE_CLOSED:
 				connect_btn.disabled = false
 
