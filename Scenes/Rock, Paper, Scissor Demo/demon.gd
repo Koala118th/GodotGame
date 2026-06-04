@@ -1,116 +1,89 @@
 extends Control
 
-@export var web_socket_url = "wss://nrq93719di.execute-api.ap-southeast-2.amazonaws.com/production/"	
+@export var web_socket_url = "wss://nrq93719di.execute-api.ap-southeast-2.amazonaws.com/production/"
 
 var _client: WebSocketPeer = WebSocketPeer.new()
 var _last_state = WebSocketPeer.STATE_CLOSED
 
-#Nodes
-@onready var label = $VBox/HBox2/Label
+# ─── Node references ─────────────────────────────────────────────────────────
 
-func _ready() -> void:
-	pass
+@onready var label           = $VBox/HBox2/Label
+@onready var connect_btn     = $VBox/HBox2/Connect
+@onready var disconnect_btn  = $VBox/HBox2/Disconnect
+@onready var choice_buttons  = [$VBox/HBox/Rock, $VBox/HBox/Paper, $VBox/HBox/Scissor]
+
+# ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 func _process(_delta: float) -> void:
 	_client.poll()
-	
-	var state = _client.get_ready_state()
-	
-	if state != _last_state:
-		match state:
-			WebSocketPeer.STATE_CONNECTING:
-				print("STATE_CONNECTING") 
-			WebSocketPeer.STATE_OPEN:
-				print("STATE_OPEN") 
-				send_message({"type" : "finding_match"})
-				$VBox/HBox2/Disconnect.disabled = false
-			WebSocketPeer.STATE_CLOSING:	
-				print("STATE_CLOSING") 
-			WebSocketPeer.STATE_CLOSED:
-				print("STATE_CLOSED") 
-				$VBox/HBox2/Connect.disabled = false
-		_last_state = state
-	
-	while _client.get_available_packet_count() > 0:
-		var packet = _client.get_packet()
-		var text = packet.get_string_from_utf8()
-		var msg = JSON.parse_string(text)
-		decode_message(msg)
 
-func decode_message(msg: Dictionary) -> void:
-	if !msg.has("type"):
+	var state = _client.get_ready_state()
+
+	if state != _last_state:
+		_last_state = state
+		match state:
+			WebSocketPeer.STATE_OPEN:
+				disconnect_btn.disabled = false
+			WebSocketPeer.STATE_CLOSED:
+				connect_btn.disabled = false
+
+	while _client.get_available_packet_count() > 0:
+		var text = _client.get_packet().get_string_from_utf8()
+		var msg  = JSON.parse_string(text)
+		_on_message(msg)
+
+# ─── Message handling ─────────────────────────────────────────────────────────
+
+func _on_message(msg: Dictionary) -> void:
+	if not msg.has("type"):
 		return
-	
+
 	match msg.type:
 		"waiting_for_opponent":
-			print("Waiting for the opponent")
-			label.text = "Searching for opponent, please wait"
+			label.text = "Searching for opponent, please wait..."
 		"match_found":
-			label.text = "Opponent found"
-			enable_buttons()
+			label.text = "Opponent found! Choose your move."
+			set_choice_buttons(false)
+		"waiting_for_opponent_choice":
+			label.text = "Waiting for opponent to choose..."
 		"opponent_disconnected":
-			label.text = "You win, your opponent left"
-			disable_button()
-			send_message({"type" : "finding_match"})
+			label.text = "You win — your opponent left!"
+			set_choice_buttons(true)
 		"result":
-			label.text = "Idiot"
 			match msg.result:
-				"draw":
-					label.text = "It's a draw"
-				"win":
-					label.text = "You win"
-				"lose":
-					label.text = "You lose"
+				"win":  label.text = "You win!"
+				"lose": label.text = "You lose!"
+				"draw": label.text = "It's a draw!"
 			await get_tree().create_timer(5.0).timeout
 			_on_disconnect_button_press()
-			
-func _on_rock_button_press() -> void:
-	send_message({
-		"type" : "choice",
-		"choice": "rock"
-	})
-	disable_button()
-	
-func _on_paper_button_press() -> void:
-	send_message({
-		"type" : "choice",
-		"choice": "paper"
-	})
-	disable_button()
 
-func _on_scissor_button_press() -> void:
-	send_message({
-		"type" : "choice",
-		"choice": "scissor"
-	})
-	disable_button()
+# ─── Button handlers ─────────────────────────────────────────────────────────
+
+func _on_rock_button_press()    -> void: _send_choice("rock")
+func _on_paper_button_press()   -> void: _send_choice("paper")
+func _on_scissor_button_press() -> void: _send_choice("scissor")
+
+func _send_choice(choice: String) -> void:
+	send_message({ "type": "choice", "choice": choice })
+	set_choice_buttons(true)
 
 func _on_connect_button_press() -> void:
-	var connection: = _client.connect_to_url(web_socket_url)
-	if connection != OK:
-		print("Fail to connect: Errpr %s", connection)
+	if _client.connect_to_url(web_socket_url) == OK:
+		connect_btn.disabled = true
 	else:
-		print("Connestion initiated")
-		$VBox/HBox2/Connect.disabled = true
+		label.text = "Failed to connect."
 
 func _on_disconnect_button_press() -> void:
 	_client.close()
-	$VBox/HBox2/Disconnect.disabled = true
-	disable_button()
+	disconnect_btn.disabled = true
+	set_choice_buttons(true)
 
-#Helpers 
-func enable_buttons() -> void:
-	$VBox/HBox/Rock.disabled = false
-	$VBox/HBox/Paper.disabled = false
-	$VBox/HBox/Scissor.disabled = false
-	
-func disable_button() -> void:
-	$VBox/HBox/Rock.disabled = true
-	$VBox/HBox/Paper.disabled = true
-	$VBox/HBox/Scissor.disabled = true
-	
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+func set_choice_buttons(disabled: bool) -> void:
+	for btn in choice_buttons:
+		btn.disabled = disabled
+
 func send_message(msg: Dictionary) -> void:
 	if _client.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		var json_str = JSON.stringify(msg)
-		_client.send_text(json_str)
-		
+		_client.send_text(JSON.stringify(msg))
