@@ -53,6 +53,7 @@ func decode_message(msg: Dictionary) -> void:
 			disable_button()
 			send_message({"type" : "finding_match"})
 		"result":
+			label.text = "Idiot"
 			match msg.result:
 				"draw":
 					label.text = "It's a draw"
