@@ -46,8 +46,24 @@ func decode_message(msg: Dictionary) -> void:
 			print("Waiting for the opponent")
 			label.text = "Searching for opponent, please wait"
 		"match_found":
+			label.text = "Opponent found"
 			enable_buttons()
-
+		"opponent_disconnected":
+			pass
+			label.text = "You win, your opponent left"
+			disable_button()
+			send_message({"type" : "finding_match"})
+		"result":
+			match msg.result:
+				"draw":
+					label.text = "It's a draw"
+				"win":
+					label.text = "You win"
+				"lose":
+					label.text = "You lose"
+			await get_tree().create_timer(5.0).timeout
+			_on_disconnect_button_press()
+			
 func _on_rock_button_press() -> void:
 	send_message({
 		"type" : "choice",
