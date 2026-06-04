@@ -49,7 +49,6 @@ func decode_message(msg: Dictionary) -> void:
 			label.text = "Opponent found"
 			enable_buttons()
 		"opponent_disconnected":
-			pass
 			label.text = "You win, your opponent left"
 			disable_button()
 			send_message({"type" : "finding_match"})
