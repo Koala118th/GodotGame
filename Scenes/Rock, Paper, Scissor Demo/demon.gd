@@ -68,18 +68,21 @@ func _on_rock_button_press() -> void:
 		"type" : "choice",
 		"choice": "rock"
 	})
+	disable_button()
 	
 func _on_paper_button_press() -> void:
 	send_message({
 		"type" : "choice",
 		"choice": "paper"
 	})
+	disable_button()
 
 func _on_scissor_button_press() -> void:
 	send_message({
 		"type" : "choice",
 		"choice": "scissor"
 	})
+	disable_button()
 
 func _on_connect_button_press() -> void:
 	var connection: = _client.connect_to_url(web_socket_url)
